@@ -17,6 +17,7 @@ sig =
 
 prds = [predicate ((not . null) :: [Int] -> Bool)]
 
+-- This instance of arbitrary is only here because the "fst $ preds prds" thing doesn't work :(
 instance Arbitrary Predicates where
     -- This is broken in QuickSpec, but running "ghci> fmap (extract 0) Test.QuickCheck.generate arbitrary :: IO [Int]" runs fine
     -- and generates an actual value, what is the problem here?!
