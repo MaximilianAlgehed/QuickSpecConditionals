@@ -10,24 +10,24 @@ class Predicateable a where
     toPredicates :: a -> Gen (Maybe [Dynamic]) -- This becomes really problematic
                                                -- when we have a lot of predicates
                                                -- because we have to do backtracking many times
-    getters      :: a -> [Int -> Constant]
+    getters      :: Int -> String -> a -> [Int -> Constant]
 
     size         :: a -> Int
 
 instance Predicateable Bool where
     toPredicates True  = return (Just [])
     toPredicates False = return Nothing
-    getters _ = []
+    getters _ _ _ = []
     size _ = 0
 
 instance (Predicateable b, Typeable a, Arbitrary a) => Predicateable (a -> b) where
-    getters _ =
+    getters indx name _ =
         (:)
         (\i ->
             constant
-                ("acc"++show i)
+                (name++show indx)
                 (extract i :: Predicates -> a))
-        (map (\f -> f . (1+)) (getters (undefined :: b)))
+        (map (\f -> f . (1+)) (getters (indx+1) name (undefined :: b)))
 
     -- here is where we could do the lazy predicate stuff for an instance
     toPredicates predicate = do
@@ -63,8 +63,8 @@ instance Ord Predicates where
 
 type PredicateRep = ((Int, Gen (Maybe [Dynamic])), [Int -> Constant])
 
-predicate :: (Predicateable a) => a -> PredicateRep
-predicate p = ((size p, toPredicates p), getters p)
+predicate :: (Predicateable a) => String -> a -> PredicateRep
+predicate name p = ((size p, toPredicates p), getters 0 name p)
 
 preds :: [PredicateRep] -> (Gen Predicates, [Constant])
 preds xs = resolvePredicates $ unzip xs
@@ -82,14 +82,17 @@ resolvePredicates (gen, getters) = (makeGen, concat $ zipWith (\fs i -> map ($i)
 backtracking :: Gen (Maybe a) -> Gen a
 backtracking g = do
                     x <- g
+                    i <- resize 100 arbitrary
                     case x of
-                        Nothing -> backtracking g
+                        Nothing -> backtracking (scale (\j -> max (j+i) 0) g) -- We failed
+                                                                              -- so we arbitrarily increase the size
+                                                                              -- which is probably a bad idea in general
                         Just y  -> return y
 
 predicateSig :: Signature -> [PredicateRep] -> Signature
 predicateSig sig ps = let (gen, consts) = preds ps in
                         sig {constants = constants sig ++ consts,
-                             instances = instances sig ++ [--makeInstance (\() -> gen :: Gen Predicates),
+                             instances = instances sig ++ [makeInstance (\() -> gen :: Gen Predicates),
                                                            names (NamesFor ["p"] :: NamesFor Predicates)
                                                           ]
                             }
