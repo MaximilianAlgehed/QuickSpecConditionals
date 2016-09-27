@@ -26,16 +26,21 @@ instance (Predicateable b, Typeable a, Arbitrary a) => Predicateable (a -> b) wh
         (\i ->
             constant
                 ("acc"++show i)
-                ((\(P preds) -> fromJust (fromDynamic (preds `at` i))) :: Predicates -> a))
+                (extract i :: Predicates -> a))
         (map (\f -> f . (1+)) (getters (undefined :: b)))
 
+    -- here is where we could do the lazy predicate stuff for an instance
     toPredicates predicate = do
                                 a <- arbitrary
                                 dyns <- toPredicates (predicate a)
                                 case dyns of
                                     Nothing -> return Nothing
                                     Just xs -> return $ Just $ (toDyn a):xs
+
     size _ = 1 + size (undefined :: b)
+
+extract :: (Typeable a) => Int -> Predicates -> a
+extract i (P preds) = fromJust $ fromDynamic $ preds `at` i
 
 at :: [(Int, [a])] -> Int -> a
 at [] _ = undefined
@@ -84,8 +89,7 @@ backtracking g = do
 predicateSig :: Signature -> [PredicateRep] -> Signature
 predicateSig sig ps = let (gen, consts) = preds ps in
                         sig {constants = constants sig ++ consts,
-                             instances = instances sig ++ [makeInstance (\() -> gen :: Gen Predicates),
-                                                           --baseType (undefined :: Predicates),
+                             instances = instances sig ++ [--makeInstance (\() -> gen :: Gen Predicates),
                                                            names (NamesFor ["p"] :: NamesFor Predicates)
                                                           ]
                             }
