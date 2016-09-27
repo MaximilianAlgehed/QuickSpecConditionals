@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+module TypeclassMadness where
 import Test.QuickCheck
 import QuickSpec
 import Data.Dynamic
@@ -11,10 +12,13 @@ class Predicateable a where
                                                -- because we have to do backtracking many times
     getters      :: a -> [Int -> Constant]
 
+    size         :: a -> Int
+
 instance Predicateable Bool where
     toPredicates True  = return (Just [])
     toPredicates False = return Nothing
-    getters    = const []
+    getters _ = []
+    size _ = 0
 
 instance (Predicateable b, Typeable a, Arbitrary a) => Predicateable (a -> b) where
     getters _ =
@@ -31,6 +35,7 @@ instance (Predicateable b, Typeable a, Arbitrary a) => Predicateable (a -> b) wh
                                 case dyns of
                                     Nothing -> return Nothing
                                     Just xs -> return $ Just $ (toDyn a):xs
+    size _ = 1 + size (undefined :: b)
 
 at :: [(Int, [a])] -> Int -> a
 at [] _ = undefined
@@ -41,7 +46,7 @@ at ((j, xs):tl) i
 -- A type to hold _all_ predicates,
 -- I imagine we will keep this type
 -- hidden in QuickSpec
-newtype Predicates = P [(Int, [Dynamic])] -- Arity + arguments
+newtype Predicates = P [(Int, [Dynamic])] deriving(Show)-- Arity + arguments
 
 -- Dummy instances, don't matter since we never inspect
 -- the type (only it's projections)
@@ -50,3 +55,37 @@ instance Eq Predicates where
 
 instance Ord Predicates where
     compare p q = LT
+
+type PredicateRep = ((Int, Gen (Maybe [Dynamic])), [Int -> Constant])
+
+predicate :: (Predicateable a) => a -> PredicateRep
+predicate p = ((size p, toPredicates p), getters p)
+
+preds :: [PredicateRep] -> (Gen Predicates, [Constant])
+preds xs = resolvePredicates $ unzip xs
+
+resolvePredicates :: ([(Int, Gen (Maybe [Dynamic]))], [[Int -> Constant]]) -> (Gen Predicates, [Constant])
+resolvePredicates (gen, getters) = (makeGen, concat $ zipWith (\fs i -> map ($i) fs) getters [0..])
+    where
+        makeOneGen :: (Int, Gen (Maybe [Dynamic])) -> Gen (Int, [Dynamic])
+        makeOneGen (i, generator) = do
+                                     v <- backtracking generator
+                                     return (i, v)
+        
+        makeGen = fmap P $ sequence $ map makeOneGen gen
+
+backtracking :: Gen (Maybe a) -> Gen a
+backtracking g = do
+                    x <- g
+                    case x of
+                        Nothing -> backtracking g
+                        Just y  -> return y
+
+predicateSig :: Signature -> [PredicateRep] -> Signature
+predicateSig sig ps = let (gen, consts) = preds ps in
+                        sig {constants = constants sig ++ consts,
+                             instances = instances sig ++ [makeInstance (\() -> gen :: Gen Predicates),
+                                                           --baseType (undefined :: Predicates),
+                                                           names (NamesFor ["p"] :: NamesFor Predicates)
+                                                          ]
+                            }
