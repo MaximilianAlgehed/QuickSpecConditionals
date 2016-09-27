@@ -18,7 +18,7 @@ sig =
 prds = [predicate ((not . null) :: [Int] -> Bool)]
 
 instance Arbitrary Predicates where
-    -- This is broken in QuickSpec, but running "ghci>Test.QuickCheck.generate arbitrary :: IO Predicates" runs fine
+    -- This is broken in QuickSpec, but running "ghci> fmap (extract 0) Test.QuickCheck.generate arbitrary :: IO [Int]" runs fine
     -- and generates an actual value, what is the problem here?!
     arbitrary = fst $ preds prds {-do
                     a <- arbitrary `suchThat` (not . null) :: Gen [Int]

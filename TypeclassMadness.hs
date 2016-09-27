@@ -51,7 +51,7 @@ at ((j, xs):tl) i
 -- A type to hold _all_ predicates,
 -- I imagine we will keep this type
 -- hidden in QuickSpec
-newtype Predicates = P [(Int, [Dynamic])] deriving(Show)-- Arity + arguments
+data Predicates = P {unP :: [(Int, [Dynamic])]} deriving(Show)-- Arity + arguments
 
 -- Dummy instances, don't matter since we never inspect
 -- the type (only it's projections)
