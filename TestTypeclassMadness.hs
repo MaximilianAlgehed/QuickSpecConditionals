@@ -9,11 +9,15 @@ sig =
     constants = [
        constant "[]" ([] :: [Int]),
        constant ":"  ((:) :: Int -> [Int] -> [Int]),
-       constant "++" ((++) :: [Int] -> [Int] -> [Int]),
-       constant "head" (head :: [Int] -> Int)
+       constant "++" ((++) :: [A] -> [A] -> [A]),
+       constant "head" (head :: [A] -> A),
+       constant "zip" (zip :: [Int] -> [Int] -> [(Int,Int)]),
+       constant "length" (length :: [A] -> Int),
+       constant "reverse" (reverse :: [A] -> [A])
     ]
    }
 
-prds = [predicate "notNull" ((not . null) :: [Int] -> Bool)]
+prds = [predicate "notNull" ((not . null) :: [Int] -> Bool),
+        predicate "eqLen" ((\xs ys -> length xs == length ys) :: [Int] -> [Int] -> Bool)]
 
 main = quickSpec $ predicateSig sig prds

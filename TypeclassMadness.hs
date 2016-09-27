@@ -51,7 +51,7 @@ at ((j, xs):tl) i
 -- A type to hold _all_ predicates,
 -- I imagine we will keep this type
 -- hidden in QuickSpec
-data Predicates = P {unP :: [(Int, [Dynamic])]} deriving(Show)-- Arity + arguments
+data Predicates = P {unP :: [(Int, [Dynamic])]} --deriving(Show)-- Arity + arguments
 
 -- Dummy instances, don't matter since we never inspect
 -- the type (only it's projections)
@@ -82,7 +82,7 @@ resolvePredicates (gen, getters) = (makeGen, concat $ zipWith (\fs i -> map ($i)
 backtracking :: Gen (Maybe a) -> Gen a
 backtracking g = do
                     x <- g
-                    i <- resize 100 arbitrary
+                    i <- resize 10 arbitrary
                     case x of
                         Nothing -> backtracking (scale (\j -> max (j+i) 0) g) -- We failed
                                                                               -- so we arbitrarily increase the size
