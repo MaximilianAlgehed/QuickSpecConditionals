@@ -51,7 +51,7 @@ at ((j, xs):tl) i
 -- A type to hold _all_ predicates,
 -- I imagine we will keep this type
 -- hidden in QuickSpec
-data Predicates = P {unP :: [(Int, [Dynamic])]} --deriving(Show)-- Arity + arguments
+data Predicates = P {unP :: [(Int, [Dynamic])]} deriving(Show)-- Arity + arguments
 
 -- Dummy instances, don't matter since we never inspect
 -- the type (only it's projections)
@@ -61,13 +61,13 @@ instance Eq Predicates where
 instance Ord Predicates where
     compare p q = LT
 
-type PredicateRep = ((Int, Gen (Maybe [Dynamic])), [Int -> Constant])
+type PredicateRep = (((Int, Gen (Maybe [Dynamic])), [Int -> Constant]), Constant)
 
-predicate :: (Predicateable a) => String -> a -> PredicateRep
-predicate name p = ((size p, toPredicates p), getters 0 name p)
+predicate :: (Predicateable a, Typeable a) => String -> a -> PredicateRep
+predicate name p = (((size p, toPredicates p), getters 0 name p), constant name p)
 
 preds :: [PredicateRep] -> (Gen Predicates, [Constant])
-preds xs = resolvePredicates $ unzip xs
+preds xs = resolvePredicates $ unzip (map fst xs)
 
 resolvePredicates :: ([(Int, Gen (Maybe [Dynamic]))], [[Int -> Constant]]) -> (Gen Predicates, [Constant])
 resolvePredicates (gen, getters) = (makeGen, concat $ zipWith (\fs i -> map ($i) fs) getters [0..])
@@ -89,10 +89,13 @@ backtracking g = do
                                                                               -- which is probably a bad idea in general
                         Just y  -> return y
 
+makeContexts reps = zipWith (\((_, fns), p) i -> (p, map ($i) fns)) reps [0..]
+
 predicateSig :: Signature -> [PredicateRep] -> Signature
 predicateSig sig ps = let (gen, consts) = preds ps in
                         sig {constants = constants sig ++ consts,
                              instances = instances sig ++ [makeInstance (\() -> gen :: Gen Predicates),
                                                            names (NamesFor ["p"] :: NamesFor Predicates)
-                                                          ]
+                                                          ],
+                             conditionalsContext = makeContexts ps
                             }
